@@ -18,6 +18,7 @@ import flask
 from flask import render_template
 from flask import request
 from flask import url_for
+from flask import redirect
 
 import json
 import logging
@@ -35,6 +36,7 @@ from pymongo import MongoClient
 # Globals
 ###
 import CONFIG
+from forms import MemoForm, IndexForm
 
 app = flask.Flask(__name__)
 
@@ -54,21 +56,33 @@ app.secret_key = str(uuid.uuid4())
 # Pages
 ###
 
-@app.route("/")
-@app.route("/index")
+@app.route("/", methods=['GET', 'POST'])
+@app.route("/index", methods=['GET', 'POST'])
 def index():
+  form = IndexForm(request.form)
   app.logger.debug("Main page entry")
   flask.session['memos'] = get_memos()
   for memo in flask.session['memos']:
       app.logger.debug("Memo: " + str(memo))
-  return flask.render_template('index.html')
+  if form.validate_on_submit():
+          app.logger.debug("removed memo")
+  return flask.render_template('index.html', form=form)
 
 
 # We don't have an interface for creating memos yet
-# @app.route("/create")
-# def create():
-#     app.logger.debug("Create")
-#     return flask.render_template('create.html')
+@app.route("/create", methods=['GET', 'POST'])
+def create():
+    form = MemoForm(request.form)
+    app.logger.debug("Create")
+    app.logger.debug(form.validate_on_submit())
+    if form.validate_on_submit():
+        if "Memo" in request.form:
+            dtDate = arrow.utcnow()
+            put_memo(dtDate, request.form["Memo"])
+            return redirect(url_for('index'))
+		
+            
+    return flask.render_template('create.html', form=form)
 
 
 @app.errorhandler(404)
@@ -85,13 +99,13 @@ def page_not_found(error):
 #################
 
 # NOT TESTED with this application; may need revision 
-#@app.template_filter( 'fmtdate' )
-# def format_arrow_date( date ):
-#     try: 
-#         normal = arrow.get( date )
-#         return normal.to('local').format("ddd MM/DD/YYYY")
-#     except:
-#         return "(bad date)"
+@app.template_filter( 'fmtdate' )
+def format_arrow_date( date ):
+    try: 
+        normal = arrow.get( date )
+        return normal.to('local').format("ddd MM/DD/YYYY")
+    except:
+        return "(bad date)"
 
 @app.template_filter( 'humanize' )
 def humanize_arrow_date( date ):
@@ -133,21 +147,28 @@ def get_memos():
     return records 
 
 
-# def put_memo(dt, mem):
-#     """
-#     Place memo into database
-#     Args:
-#        dt: Datetime (arrow) object
-#        mem: Text of memo
-#     NOT TESTED YET
-#     """
-#     record = { "type": "dated_memo", 
-#                "date": dt.to('utc').naive,
-#                "text": mem
-#             }
-#     collection.insert(record)
-#     return 
+def put_memo(dt, mem):
+    """
+    Place memo into database
+    Args:
+       dt: Datetime (arrow) object
+       mem: Text of memo
+    NOT TESTED YET
+    """
+    record = { "type": "dated_memo", 
+               "date": dt.to('utc').naive,
+               "text": mem
+            }
+    collection.insert(record)
+    return 
 
+def rm_memo(mem):
+    """
+    rm memo from database
+    Args:
+        mem: text of memo to remove
+    """
+    collection.delete_one({"text": mem})
 
 if __name__ == "__main__":
     # App is created above so that it will

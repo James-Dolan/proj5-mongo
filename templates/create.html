@@ -37,16 +37,15 @@
   {% endif %}
 {% endwith %}
 
-<form method="PUT" action="_create">
+<form method="POST" action="create">
+{{ form.hidden_tag() }}
 <div class="row">
-    <div class="col-md-2">
-    <input type="text" class="form-control"
-     name="Date" value=""/>
-  </div>
   <div class="col-md-10">
     <input type="text" class="form-control"
-      name="Memo" value="Memo" />
+      name="Memo" value="{{ request.form.Memo }}" placeholder="Memo" required/>
+  
   </div>
+  <button type="submit">submit</button>
  </div>
 </form>
 </div> 
